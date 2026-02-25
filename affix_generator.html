@@ -1,26 +1,105 @@
 <!doctype html>
-<html lang="zh">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Pokémon Nature Generator (Tiny Generator)</title>
+  <title>Pokémon Nature Generator (Weighted + Cards)</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 18px; }
-    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 12px; }
-    label { display: block; font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
-    select, input[type="number"], button { padding: 8px 10px; font-size: 14px; }
-    button { cursor: pointer; }
-    textarea { width: 100%; min-height: 360px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding: 12px; font-size: 13px; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-top: 12px; }
-    .hint { font-size: 12px; opacity: 0.75; line-height: 1.4; }
+    :root { color-scheme: light; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 18px;
+      line-height: 1.25;
+    }
+    h2 { margin: 0 0 10px 0; }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+    .field { min-width: 220px; }
+    label { display:block; font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
+    select, input[type="number"] { padding: 8px 10px; font-size: 14px; width: 100%; }
+    input[type="checkbox"] { transform: translateY(1px); }
+    .checkline { display:flex; gap:8px; align-items:center; }
+    button { padding: 9px 12px; font-size: 14px; cursor: pointer; }
+    .hint { font-size: 12px; opacity: 0.75; line-height: 1.4; margin-top: 6px; }
+
+    .panel {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    /* Cards output */
+    .meta {
+      font-size: 12px;
+      opacity: 0.85;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    .card h3 {
+      margin: 0 0 6px 0;
+      font-size: 16px;
+      display:flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+    .badge {
+      font-size: 11px;
+      border: 1px solid #ddd;
+      border-radius: 999px;
+      padding: 2px 8px;
+      opacity: 0.9;
+      white-space: nowrap;
+    }
+    .affix { font-size: 13px; opacity: 0.9; margin-bottom: 8px; }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    .stats div { display:flex; justify-content: space-between; }
+    .footer {
+      margin-top: 10px;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    /* Stats output */
+    .statsPanel pre {
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    .btns { display:flex; gap:10px; flex-wrap: wrap; }
   </style>
 </head>
 <body>
-  <h2>Pokémon Nature Generator (Weighted + Synergy)</h2>
+  <h2>Pokémon Nature Generator</h2>
 
   <div class="row">
-    <div>
-      <label>metaFocus（分布偏好）</label>
+    <div class="field">
+      <label>Meta Focus (distribution bias)</label>
       <select id="metaFocus">
         <option value="Physical">Physical (+Atk bias)</option>
         <option value="Special">Special (+SpA bias)</option>
@@ -30,8 +109,8 @@
       </select>
     </div>
 
-    <div>
-      <label>buildTag（Synergy 规则）</label>
+    <div class="field">
+      <label>Build Tag (synergy constraints)</label>
       <select id="buildTag">
         <option value="Any">Any (no strict build constraint)</option>
         <option value="PhysicalSweeper">Physical Sweeper</option>
@@ -41,48 +120,51 @@
       </select>
     </div>
 
-    <div>
-      <label>Allow Neutral Natures</label>
-      <input id="allowNeutral" type="checkbox" checked />
-      <div class="hint">关闭后：up==down 的 5 种性格不会出现</div>
-    </div>
-
-    <div>
-      <label>Strict Synergy (Optional B)</label>
-      <input id="strictSynergy" type="checkbox" checked />
-      <div class="hint">开启后：buildTag 会“禁配/降权”某些组合</div>
-    </div>
-
-    <div>
-      <label>Sample Count</label>
+    <div class="field">
+      <label>Samples to generate</label>
       <input id="sampleCount" type="number" min="10" max="200" value="10" />
     </div>
 
-    <div style="display:flex; gap:10px;">
+    <div class="field">
+      <label>Options</label>
+      <div class="checkline">
+        <input id="allowNeutral" type="checkbox" checked />
+        <span>Allow Neutral Natures</span>
+      </div>
+      <div class="checkline" style="margin-top:6px;">
+        <input id="strictSynergy" type="checkbox" checked />
+        <span>Strict Synergy (Optional B)</span>
+      </div>
+      <div class="hint">
+        Neutral natures are the 5 where up==down (no stat changes).
+      </div>
+    </div>
+
+    <div class="btns">
       <button id="btnSamples">Generate Samples</button>
       <button id="btnStats">Run 100 Stats</button>
-      <button id="btnClear">Clear</button>
+      <button id="btnClear">Clear Output</button>
     </div>
   </div>
 
-  <div class="card">
-    <textarea id="out" placeholder="输出会显示在这里..."></textarea>
-    <div class="hint">
-      ✅ Rubric 对齐：<br/>
-      - Procedural logic：矩阵性格 + 加权抽样 + buildTag synergy 禁配/降权 <br/>
-      - Parameters：metaFocus / allowNeutral / strictSynergy 改变结果分布 <br/>
-      - Evidence：样本输出 + 100 次统计（up 频率变化）<br/>
+  <div class="panel">
+    <div id="metaLine" class="meta"></div>
+    <div id="cards" class="cards"></div>
+  </div>
+
+  <div class="panel statsPanel" style="margin-top:12px;">
+    <div class="meta">Distribution Evidence (for rubric):</div>
+    <pre id="statsOut"></pre>
+    <div class="footer">
+      Tip: Run stats under two different Meta Focus settings and compare UP frequency.
     </div>
   </div>
 
 <script>
 /** ========= 1) Core Data ========= **/
 
-// Nature affects these 5 stats (HP unaffected)
 const STATS = ["Atk", "Def", "SpA", "SpD", "Spe"];
 
-// Optional: Official-ish names mapping (you can expand/adjust).
-// Key format: "UP-DOWN". Neutral: "Atk-Atk" etc.
 const NAME_MAP = {
   "Atk-SpA": "Adamant",
   "Atk-Spe": "Brave",
@@ -109,36 +191,12 @@ const NAME_MAP = {
   "Spe-SpA": "Hasty",
   "Spe-SpD": "Naive",
 
-  // Neutral (no change)
   "Atk-Atk": "Hardy",
   "Def-Def": "Docile",
   "SpA-SpA": "Bashful",
   "SpD-SpD": "Quirky",
   "Spe-Spe": "Serious"
 };
-
-// Build matrix of 25 natures
-function buildNaturePool({ allowNeutral=true }) {
-  const pool = [];
-  for (const up of STATS) {
-    for (const down of STATS) {
-      const key = `${up}-${down}`;
-      const isNeutral = (up === down);
-      if (!allowNeutral && isNeutral) continue;
-
-      pool.push({
-        up,
-        down,
-        key,
-        name: NAME_MAP[key] ?? key,
-        isNeutral,
-        // Multipliers: 1.1 / 0.9 except neutral all 1.0
-        mult: buildMultipliers(up, down)
-      });
-    }
-  }
-  return pool;
-}
 
 function buildMultipliers(up, down) {
   const mult = {};
@@ -148,6 +206,24 @@ function buildMultipliers(up, down) {
     mult[down] = 0.9;
   }
   return mult;
+}
+
+function buildNaturePool({ allowNeutral=true }) {
+  const pool = [];
+  for (const up of STATS) {
+    for (const down of STATS) {
+      const key = `${up}-${down}`;
+      const isNeutral = (up === down);
+      if (!allowNeutral && isNeutral) continue;
+      pool.push({
+        up, down, key,
+        name: NAME_MAP[key] ?? key,
+        isNeutral,
+        mult: buildMultipliers(up, down)
+      });
+    }
+  }
+  return pool;
 }
 
 /** ========= 2) Weighted Picking ========= **/
@@ -169,20 +245,16 @@ function weightedPick(items, weightFn) {
   return items[items.length - 1];
 }
 
-/** ========= 3) Weights + Synergy Rules ========= **/
+/** ========= 3) Weights + Synergy ========= **/
 
 function metaWeight(nature, metaFocus) {
-  // Base weight
   let w = 1;
-
   if (metaFocus === "Neutral") return w;
 
-  // Bias toward certain "up" stats; penalize certain "down" stats
   switch (metaFocus) {
     case "Physical":
       if (nature.up === "Atk") w *= 3.0;
       if (nature.down === "Atk") w *= 0.2;
-      // optional: discourage boosting SpA in physical meta
       if (nature.up === "SpA") w *= 0.6;
       break;
 
@@ -200,82 +272,63 @@ function metaWeight(nature, metaFocus) {
     case "Bulky":
       if (nature.up === "Def" || nature.up === "SpD") w *= 2.3;
       if (nature.down === "Def" || nature.down === "SpD") w *= 0.35;
-      // optional: discourage -Spe in bulky? (some builds don't mind; keep mild)
       break;
   }
-
   return w;
 }
 
-// Optional Challenge B: synergy constraints
 function synergyWeight(nature, buildTag, strictSynergy) {
   if (!strictSynergy || buildTag === "Any") return 1;
 
-  // You can tune these as "ban" or "downweight".
-  // Using weight=0 is a hard ban; 0.2 is strong discouragement.
-
-  // Physical Sweeper: never lower Atk; usually prefer raising Atk or Spe
   if (buildTag === "PhysicalSweeper") {
-    if (nature.down === "Atk") return 0;     // ban
+    if (nature.down === "Atk") return 0;
     if (nature.up === "Atk" || nature.up === "Spe") return 1.8;
     if (nature.up === "SpA") return 0.3;
   }
 
-  // Special Sweeper: never lower SpA; prefer raising SpA or Spe
   if (buildTag === "SpecialSweeper") {
-    if (nature.down === "SpA") return 0;     // ban
+    if (nature.down === "SpA") return 0;
     if (nature.up === "SpA" || nature.up === "Spe") return 1.8;
     if (nature.up === "Atk") return 0.3;
   }
 
-  // Tank: don't lower defenses; prefer raising Def/SpD
   if (buildTag === "Tank") {
-    if (nature.down === "Def" || nature.down === "SpD") return 0; // ban
+    if (nature.down === "Def" || nature.down === "SpD") return 0;
     if (nature.up === "Def" || nature.up === "SpD") return 2.0;
-    // lowering Speed is acceptable for tanks; no penalty needed
   }
 
-  // Mixed: avoid lowering Atk or SpA too much (soft constraint)
   if (buildTag === "Mixed") {
-    if (nature.down === "Atk" || nature.down === "SpA") return 0.25; // discourage
+    if (nature.down === "Atk" || nature.down === "SpA") return 0.25;
     return 1.1;
   }
 
   return 1;
 }
 
-function combinedWeight(nature, { metaFocus, buildTag, strictSynergy }) {
-  const w1 = metaWeight(nature, metaFocus);
-  const w2 = synergyWeight(nature, buildTag, strictSynergy);
-  // Optional: discourage neutral a bit in focused metas
-  let w3 = 1;
-  if (!nature.isNeutral && metaFocus !== "Neutral") w3 = 1.0;
-  if (nature.isNeutral && metaFocus !== "Neutral") w3 = 0.7;
+function combinedWeight(nature, cfg) {
+  const w1 = metaWeight(nature, cfg.metaFocus);
+  const w2 = synergyWeight(nature, cfg.buildTag, cfg.strictSynergy);
+  // Mildly discourage neutral in non-neutral metas
+  const w3 = (nature.isNeutral && cfg.metaFocus !== "Neutral") ? 0.7 : 1.0;
   return w1 * w2 * w3;
 }
 
 /** ========= 4) Generate ========= **/
 
-function generateNature(config) {
-  const pool = buildNaturePool({ allowNeutral: config.allowNeutral });
-  return weightedPick(pool, n => combinedWeight(n, config));
-}
-
-function formatNature(n) {
-  const upDown = n.isNeutral ? "(neutral)" : `(+${n.up}, -${n.down})`;
-  const mults = STATS.map(s => `${s}×${n.mult[s].toFixed(1)}`).join("  ");
-  return `${n.name} ${upDown}\n  ${mults}`;
+function generateNature(cfg) {
+  const pool = buildNaturePool({ allowNeutral: cfg.allowNeutral });
+  return weightedPick(pool, n => combinedWeight(n, cfg));
 }
 
 /** ========= 5) Evidence Stats ========= **/
 
-function runStats(config, trials = 100) {
+function runStats(cfg, trials=100) {
   const countsUp = Object.fromEntries(STATS.map(s => [s, 0]));
   const countsDown = Object.fromEntries(STATS.map(s => [s, 0]));
   let neutralCount = 0;
 
   for (let i = 0; i < trials; i++) {
-    const n = generateNature(config);
+    const n = generateNature(cfg);
     if (!n) continue;
     if (n.isNeutral) neutralCount++;
     countsUp[n.up] = (countsUp[n.up] || 0) + 1;
@@ -283,8 +336,9 @@ function runStats(config, trials = 100) {
   }
 
   const pct = (x) => (x / trials * 100).toFixed(1) + "%";
+
   let out = `--- Distribution Stats (${trials} trials) ---\n`;
-  out += `metaFocus=${config.metaFocus}, buildTag=${config.buildTag}, allowNeutral=${config.allowNeutral}, strictSynergy=${config.strictSynergy}\n`;
+  out += `metaFocus=${cfg.metaFocus}, buildTag=${cfg.buildTag}, allowNeutral=${cfg.allowNeutral}, strictSynergy=${cfg.strictSynergy}\n`;
   out += `Neutral: ${neutralCount} (${pct(neutralCount)})\n\n`;
 
   out += `UP frequency:\n`;
@@ -299,7 +353,6 @@ function runStats(config, trials = 100) {
 /** ========= 6) UI ========= **/
 
 const el = (id) => document.getElementById(id);
-const outBox = el("out");
 
 function readConfig() {
   return {
@@ -310,32 +363,79 @@ function readConfig() {
   };
 }
 
-function append(text) {
-  outBox.value += (outBox.value ? "\n" : "") + text;
-  outBox.scrollTop = outBox.scrollHeight;
+function setMetaLine(cfg, count) {
+  el("metaLine").textContent =
+`Samples: ${count}
+metaFocus=${cfg.metaFocus} | buildTag=${cfg.buildTag} | allowNeutral=${cfg.allowNeutral} | strictSynergy=${cfg.strictSynergy}`;
+}
+
+function statRow(label, value) {
+  const div = document.createElement("div");
+  const a = document.createElement("span");
+  const b = document.createElement("span");
+  a.textContent = label;
+  b.textContent = value;
+  div.appendChild(a);
+  div.appendChild(b);
+  return div;
+}
+
+function renderCard(nature, index) {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const title = document.createElement("h3");
+  const name = document.createElement("span");
+  name.textContent = `${String(index).padStart(2, "0")}. ${nature.name}`;
+  const badge = document.createElement("span");
+  badge.className = "badge";
+  badge.textContent = nature.isNeutral ? "NEUTRAL" : "NATURE";
+  title.appendChild(name);
+  title.appendChild(badge);
+
+  const affix = document.createElement("div");
+  affix.className = "affix";
+  affix.textContent = nature.isNeutral ? "No stat changes (neutral nature)." : `Boosts ${nature.up} (+10%), lowers ${nature.down} (-10%).`;
+
+  const stats = document.createElement("div");
+  stats.className = "stats";
+  for (const s of STATS) {
+    stats.appendChild(statRow(s, `×${nature.mult[s].toFixed(1)}`));
+  }
+
+  card.appendChild(title);
+  card.appendChild(affix);
+  card.appendChild(stats);
+
+  return card;
+}
+
+function clearCards() {
+  el("cards").innerHTML = "";
 }
 
 el("btnSamples").addEventListener("click", () => {
-  const config = readConfig();
-  const n = Math.max(10, Math.min(200, Number(el("sampleCount").value) || 10));
+  const cfg = readConfig();
+  const count = Math.max(10, Math.min(200, Number(el("sampleCount").value) || 10));
 
-  let block = `=== Samples (${n}) ===\n`;
-  block += `metaFocus=${config.metaFocus}, buildTag=${config.buildTag}, allowNeutral=${config.allowNeutral}, strictSynergy=${config.strictSynergy}\n\n`;
+  setMetaLine(cfg, count);
+  clearCards();
 
-  for (let i = 0; i < n; i++) {
-    const nature = generateNature(config);
-    block += `${String(i+1).padStart(2,"0")}. ${formatNature(nature)}\n`;
+  for (let i = 1; i <= count; i++) {
+    const nature = generateNature(cfg);
+    el("cards").appendChild(renderCard(nature, i));
   }
-  append(block.trimEnd());
 });
 
 el("btnStats").addEventListener("click", () => {
-  const config = readConfig();
-  append(runStats(config, 100));
+  const cfg = readConfig();
+  el("statsOut").textContent = runStats(cfg, 100);
 });
 
 el("btnClear").addEventListener("click", () => {
-  outBox.value = "";
+  el("metaLine").textContent = "";
+  clearCards();
+  el("statsOut").textContent = "";
 });
 </script>
 </body>
